@@ -20,6 +20,7 @@
 #include <fcntl.h>	/* for open, O_RDONLY */
 #include <values.h>	/* for MAXINT */
 #ifdef MD5
+#include <global.h>	/* for macros in md5.h */
 #include <md5.h>	/* for MD5 hashing routines */
 #include <string.h>	/* for memcpy */
 #endif
@@ -41,7 +42,7 @@ struct stat_struct {
   uid_t st_uid;
   gid_t st_gid;
   off_t st_size;
-  time_t st_mtime;
+  time_t st_mtim;
   dev_t st_dev;
   ino_t st_ino;
 #ifdef MD5
@@ -229,7 +230,7 @@ char **argv;
 	statsp->st_mode  = mflag ? statbuf.st_mode  : 0;
 	statsp->st_uid   = uflag ? statbuf.st_uid   : 0;
 	statsp->st_gid   = gflag ? statbuf.st_gid   : 0;
-	statsp->st_mtime = tflag ? statbuf.st_mtime : 0;
+	statsp->st_mtim  = tflag ? statbuf.st_mtime : 0;
 	statsp->st_dev   =         statbuf.st_dev  ;
 	statsp->st_ino   =         statbuf.st_ino  ;
 #ifdef MD5
@@ -330,8 +331,8 @@ struct stat_struct *a, *b;
   if (a->st_uid   > b->st_uid  ) return  1;
   if (a->st_gid   < b->st_gid  ) return -1;
   if (a->st_gid   > b->st_gid  ) return  1;
-  if (a->st_mtime < b->st_mtime) return -1;
-  if (a->st_mtime > b->st_mtime) return  1;
+  if (a->st_mtim  < b->st_mtim ) return -1;
+  if (a->st_mtim  > b->st_mtim ) return  1;
   if (sortnameq)
     return strcmp(a->name, b->name);
   else
@@ -437,10 +438,9 @@ char *name;
   while (0 < (bytesread = read(fd, filebuf, sizeof(filebuf)))) {
     MD5Update(&mdContext, filebuf, bytesread);
   }
-  MD5Final(&mdContext);
-  close(fd);
   digest = (unsigned char *)malloc(16);
-  memcpy(digest, mdContext.digest, 16);
+  MD5Final(digest, &mdContext);
+  close(fd);
   return digest;
 }
 #endif
