@@ -15,7 +15,7 @@
 #include <stdio.h>	/* for fprintf, fgets, stderr */
 #include <stdlib.h>	/* for malloc, qsort */
 #include <unistd.h>	/* for getopt */
-#include <string.h>	/* for strlen, strdup */
+#include <string.h>	/* for strlen, strdup, strrchr */
 #include <sys/stat.h>	/* for stat */
 #include <fcntl.h>	/* for open, O_RDONLY */
 #include <values.h>	/* for MAXINT */
@@ -43,6 +43,7 @@ struct stat_struct {
   gid_t st_gid;
   off_t st_size;
   time_t st_mtim;
+  char *st_name;
   dev_t st_dev;
   ino_t st_ino;
 #ifdef MD5
@@ -55,6 +56,8 @@ struct stat_struct {
 void usage(char *progname);
 int main(int argc, char **argv);
 char *get_filename(int argc, char **argv, int *optindp);
+char *basename(char *name);
+int mystrcmp(char *a, char *b);
 int sortstat(struct stat_struct *a, struct stat_struct *b);
 int filecompare(struct stat_struct *stat1, struct stat_struct *stat2);
 void nullify(struct stat_struct *statp);
@@ -66,6 +69,8 @@ unsigned char *md5_file(char *name);
 void usage();
 int main();
 char *get_filename();
+char *basename();
+int mystrcmp();
 int sortstat();
 int filecompare();
 void nullify();
@@ -80,6 +85,7 @@ bool uflag = FALSE;
 bool gflag = FALSE;
 bool mflag = FALSE;
 bool tflag = FALSE;
+bool nflag = FALSE;
 bool zflag = TRUE;
 bool lflag = TRUE;
 bool hflag = TRUE;
@@ -103,17 +109,18 @@ char *progname;
 \n\
 Determine if files can safely be linked.\n\
 \n\
-usage: %s [-u] [-g] [-m] [-t] [-z|-Z] [-l|-L] [-h|-H] [files...]\n\
+usage: %s [-u] [-g] [-m] [-t] [-n] [-z|-Z] [-l|-L] [-h|-H] [files...]\n\
 \n\
   -u: files must have the same user ID\n\
   -g: files must have the same group ID\n\
   -m: files must have the same mode\n\
   -t: files must have the same modify time\n\
-  -z: omit    zero-length files\n\
+  -n: files must have the same basename\n\
+  -z: omit    zero-length files (default)\n\
   -Z: include zero-length files\n\
-  -l: omit    file pairs that are hard links to each other\n\
+  -l: omit    file pairs that are hard links to each other (default)\n\
   -L: include file pairs that are hard links to each other\n\
-  -h: do    use MD5 hashing\n\
+  -h: do    use MD5 hashing (default)\n\
   -H: don't use MD5 hashing\n\
 File names can either be specified on the command line or\n\
 as standard input, one file per line.\n\
@@ -139,7 +146,7 @@ char **argv;
   /*extern char *optarg;*/
   extern int optind;
 
-  while ((c = getopt(argc, argv, "uUgGmMtTzZlLhHdD")) != EOF) {
+  while ((c = getopt(argc, argv, "uUgGmMtTnNzZlLhHdD")) != EOF) {
     switch (c) {
     case 'u': uflag = TRUE ; break;
     case 'U': uflag = FALSE; break;
@@ -149,6 +156,8 @@ char **argv;
     case 'M': mflag = FALSE; break;
     case 't': tflag = TRUE ; break;
     case 'T': tflag = FALSE; break;
+    case 'n': nflag = TRUE ; break;
+    case 'N': nflag = FALSE; break;
     case 'z': zflag = TRUE ; break;
     case 'Z': zflag = FALSE; break;
     case 'l': lflag = TRUE ; break;
@@ -178,6 +187,7 @@ char **argv;
     fprintf(stderr, "  g: %s   (files %s have the same group ID)\n", TF(gflag), MN(gflag));
     fprintf(stderr, "  m: %s   (files %s have the same mode)\n", TF(mflag), MN(mflag));
     fprintf(stderr, "  t: %s   (files %s have the same modify time)\n", TF(tflag), MN(tflag));
+    fprintf(stderr, "  t: %s   (files %s have the same basename)\n", TF(nflag), MN(nflag));
     fprintf(stderr, "  z: %s   (omit zero-length files)\n", TF(zflag), OI(zflag));
     fprintf(stderr, "  l: %s   (omit file pairs that are hard links to each other)\n", TF(lflag), OI(lflag));
     fprintf(stderr, "  h: %s   (do %suse MD5 hashing)\n", TF(hflag), DN(hflag));
@@ -231,6 +241,7 @@ char **argv;
 	statsp->st_uid   = uflag ? statbuf.st_uid   : 0;
 	statsp->st_gid   = gflag ? statbuf.st_gid   : 0;
 	statsp->st_mtim  = tflag ? statbuf.st_mtime : 0;
+	statsp->st_name  = nflag ? basename(statsp->name) : "";
 	statsp->st_dev   =         statbuf.st_dev  ;
 	statsp->st_ino   =         statbuf.st_ino  ;
 #ifdef MD5
@@ -319,10 +330,34 @@ char **argv;
 }
 
 
-/* sort files by size, mode, uid, gid, mtime, name */
+/* return a pointer to the basename of the given filename */
+char *basename(name)
+     char *name;
+{
+  char *retval = strrchr(name, '/');
+  if (retval == NULL)
+    return name;
+  else
+    return retval+1;
+}
+
+
+/* compare two strings with strcmp, but take care of NULLS */
+int mystrcmp(a,b)
+     char *a, *b;
+{
+  if (a == NULL && b == NULL) return  0;
+  if (a == NULL)              return  1;
+  if (b == NULL)              return -1;
+  return strcmp(a,b);
+}
+
+
+/* sort files by size, mode, uid, gid, mtime, basename, name */
 int sortstat(a, b)
 struct stat_struct *a, *b;
 {
+  int cmp;
   if (a->st_size  < b->st_size ) return -1;
   if (a->st_size  > b->st_size ) return  1;
   if (a->st_mode  < b->st_mode ) return -1;
@@ -333,8 +368,10 @@ struct stat_struct *a, *b;
   if (a->st_gid   > b->st_gid  ) return  1;
   if (a->st_mtim  < b->st_mtim ) return -1;
   if (a->st_mtim  > b->st_mtim ) return  1;
+  cmp = mystrcmp(a->st_name, b->st_name);
+  if (cmp) return cmp;
   if (sortnameq)
-    return strcmp(a->name, b->name);
+    return mystrcmp(a->name, b->name);
   else
     return 0;
 }
