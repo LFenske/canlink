@@ -28,7 +28,7 @@ files:
 		@echo canlink.c Makefile | tr " " "\012"
 
 clean:
-		rm -f *.o core
+		rm -f *.o core *~
 
 clobber:	clean
 		rm -f canlink
