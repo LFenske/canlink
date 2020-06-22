@@ -188,8 +188,8 @@ char **argv;
     fprintf(stderr, "  m: %s   (files %s have the same mode)\n", TF(mflag), MN(mflag));
     fprintf(stderr, "  t: %s   (files %s have the same modify time)\n", TF(tflag), MN(tflag));
     fprintf(stderr, "  t: %s   (files %s have the same basename)\n", TF(nflag), MN(nflag));
-    fprintf(stderr, "  z: %s   (omit zero-length files)\n", TF(zflag), OI(zflag));
-    fprintf(stderr, "  l: %s   (omit file pairs that are hard links to each other)\n", TF(lflag), OI(lflag));
+    fprintf(stderr, "  z: %s   (%s zero-length files)\n", TF(zflag), OI(zflag));
+    fprintf(stderr, "  l: %s   (%s file pairs that are hard links to each other)\n", TF(lflag), OI(lflag));
     fprintf(stderr, "  h: %s   (do %suse MD5 hashing)\n", TF(hflag), DN(hflag));
     fprintf(stderr, "  DMASK_INIT: %s\n", TF(debugbits & DMASK_INIT));
     fprintf(stderr, "  DMASK_STAT: %s\n", TF(debugbits & DMASK_STAT));
@@ -248,7 +248,7 @@ char **argv;
 	statsp->digest = NULL;
 #endif
 	if (debugbits & DMASK_STAT)
-	  fprintf(stderr, "stat %d/%d: %s\033K\r", statsp-stats, numnames, statsp->name);
+	  fprintf(stderr, "stat %ld/%d: %s\033K\r", statsp-stats, numnames, statsp->name);
       }
     }
   }
@@ -274,14 +274,14 @@ char **argv;
     /* compare each one in this group against all others in this group */
     for ( ; statsp<statsp2; statsp++) {
 #ifdef MD5
-      if (debugbits & DMASK_TEST) fprintf(stderr, "statsp+2 = 0x%x, statsp2 = 0x%x, hflag = %d, statsp->digest = 0x%x\n", statsp+2, statsp2, hflag, statsp->digest);
+      if (debugbits & DMASK_TEST) fprintf(stderr, "statsp+2 = 0x%p, statsp2 = 0x%p, hflag = %d, statsp->digest = 0x%p\n", statsp+2, statsp2, hflag, statsp->digest);
       if ((statsp+2 < statsp2) && hflag)	/* at least 3 files to compare */
 	if (statsp->digest == NULL)
 	  statsp->digest = md5_file(statsp->name);
 #endif
       for (statsp3=statsp+1; statsp3<statsp2; statsp3++) {
 	if (debugbits & DMASK_COMP)
-	  fprintf(stderr, "compare %d:%d:%d %s %s\033K\r", statsp-stats, statsp3-stats, statsp2-stats, statsp->name, statsp3->name);
+	  fprintf(stderr, "compare %ld:%ld:%ld %s %s\033K\r", statsp-stats, statsp3-stats, statsp2-stats, statsp->name, statsp3->name);
 	if (0 == filecompare(statsp, statsp3)) {
 	  printf("%s\t%s\n", statsp->name, statsp3->name);
 	  break;
